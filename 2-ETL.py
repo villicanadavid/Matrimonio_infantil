@@ -7,57 +7,83 @@ from pyspark.sql.functions import *
 
 #Iniciar sesion SPARK
 spark = SparkSession.builder.appName("MAT_INF_ADO").getOrCreate()
+drive_path = "/content/drive/MyDrive/Matrimonios/" 
 
-# Función para cargar y procesar archivos (DF09-03)
-def procesar_archivos_09_03(archivos):
-    df_lista = []
-    for archivo in archivos:
-        df = spark.read.csv(ruta_archivos + archivo, header=True, inferSchema=True)
-        # Renombrar columnas
-        df = df.withColumnRenamed("EDAD_EL", "EDAD_CON1") \
-               .withColumnRenamed("OCUP_EL", "OCUP_CON1") \
-               .withColumnRenamed("ESCOL_EL", "CONACTCON1") \
-               .withColumnRenamed("CON_ACT_EL", "SITLABCON1") \
-               .withColumnRenamed("EDAD_LA", "EDAD_CON2") \
-               .withColumnRenamed("OCUP_LA", "OCUP_CON2") \
-               .withColumnRenamed("ESCOL_LA", "CONACTCON2") \
-               .withColumnRenamed("CON_ACT_LA", "SITLABCON2")
+#---------------------------------------------------------------------------------------------------------------2003-2009
 
-        # Seleccionar columnas y aplicar filtro
-        df = df.select("ENT_REGIS", "ANIO_REGIS", "EDAD_CON1", "OCUP_CON1", "CONACTCON1", "SITLABCON1", "EDAD_CON2", "OCUP_CON2", "CONACTCON2", "SITLABCON2") \
-               .filter((col("EDAD_CON2") < 20) & (col("ANIO_REGIS") > 2002))
-        df_lista.append(df)
-    return df_lista
+files = ["MATRI09.csv", "MATRI08.csv", "MATRI07.csv", "MATRI06.csv", "MATRI05.csv", "MATRI03.csv", "MATRI04.csv"]
 
-# Función para cargar y procesar archivos (DF10-23)
-def procesar_archivos_10_23(archivos):
-    df_lista = []
-    for archivo in archivos:
-        df = spark.read.csv(ruta_archivos + archivo, header=True, inferSchema=True)
-        # Seleccionar columnas y aplicar filtro
-        df = df.select("ent_regis", "anio_regis", "EDAD_CON1", "OCUP_CON1", "CONACTCON1", "SITLABCON1", "EDAD_CON2", "OCUP_CON2", "CONACTCON2", "SITLABCON2") \
-               .filter((col("EDAD_CON1") != col("EDAD_CON2")) & (col("EDAD_CON2") < 20) & (col("ANIO_REGIS") > 2002))
-        df_lista.append(df)
-    return df_lista
+#Renombrar columnas
+rename_dict = {
+    "EDAD_EL": "EDAD_CON1",
+    "OCUP_EL": "OCUP_CON1",
+    "ESCOL_EL": "CONACTCON1",
+    "CON_ACT_EL": "SITLABCON1",
+    "EDAD_LA": "EDAD_CON2",
+    "OCUP_LA": "OCUP_CON2",
+    "ESCOL_LA": "CONACTCON2",
+    "CON_ACT_LA": "SITLABCON2"
+}
 
+df_list = []
 
-# Lista de archivos para DF09-03
-archivos_09_03 = ["MATRI09.csv", "MATRI08.csv", "MATRI07.csv", "MATRI06.csv", "MATRI05.csv", "MATRI03.csv", "MATRI04.csv"]
+for file in files:
+    file_path = drive_path + file  # Ruta completa
+    df = spark.read.csv(file_path, header=True, inferSchema=True)  # Leer CSV con cabecera e inferencia de tipos
+    
+    # Seleccionar solo las columnas necesarias
+    selected_cols = list(rename_dict.keys()) + ["ENT_REGIS", "ANIO_REGIS"]
+    df = df.select([col(c) for c in selected_cols])  
+    # Renombrar columnas
+    for old_name, new_name in rename_dict.items():
+        df = df.withColumnRenamed(old_name, new_name)
+    
+    # Filtrar los datos según la condición
+    df_filtered = df.filter((col("EDAD_CON2") < 20) & (col("ANIO_REGIS") > 2002))
+    
+    df_list.append(df_filtered)
 
-# Lista de archivos para DF10-23
-archivos_10_23 = ["MATRI10.csv", "MATRI11.csv", "MATRI12.csv", "MATRI13.csv", "MATRI14.csv", "MATRI15.csv", "MATRI16.csv", "conjunto_de_datos_matrimonios_2022.csv", "conjunto_de_datos_matrimonios_2021.csv", "conjunto_de_datos_matrimonios_2020.csv", "conjunto_de_datos_matrimonios_2019.CSV"]
+#Unir todos los DataFrames
 
-# Procesar archivos y crear DataFrames (FINALLY CORRECTED)
-dfs_09_03 = procesar_archivos_09_03(archivos_09_03)
-df_09_03 = dfs_09_03[0] if len(dfs_09_03) == 1 else reduce(lambda df1, df2: df1.union(df2), dfs_09_03) if len(dfs_09_03) > 0 else spark.createDataFrame([], ["ENT_REGIS", "ANIO_REGIS", "EDAD_CON1", "OCUP_CON1", "CONACTCON1", "SITLABCON1", "EDAD_CON2", "OCUP_CON2", "CONACTCON2", "SITLABCON2"])
+final_df = df_list[0]
+for df in df_list[1:]:
+    df03_09 = final_df.union(df)
 
+#---------------------------------------------------------------------------------------------------------------2010-2023
+files_10_23 = [
+    "MATRI10.csv", "MATRI11.csv", "MATRI12.csv", "MATRI13.csv", "MATRI14.csv", 
+    "MATRI15.csv", "MATRI16.csv", "conjunto_de_datos_matrimonios_2022.csv", 
+    "conjunto_de_datos_matrimonios_2021.csv", "conjunto_de_datos_matrimonios_2020.csv", 
+    "conjunto_de_datos_matrimonios_2019.CSV"
+]
 
-dfs_10_23 = procesar_archivos_10_23(archivos_10_23)
-df_10_23 = dfs_10_23[0] if len(dfs_10_23) == 1 else reduce(lambda df1, df2: df1.union(df2), dfs_10_23) if len(dfs_10_23) > 0 else spark.createDataFrame([], ["ent_regis", "anio_regis", "EDAD_CON1", "OCUP_CON1", "CONACTCON1", "SITLABCON1", "EDAD_CON2", "OCUP_CON2", "CONACTCON2", "SITLABCON2"])
+selected_columns = [
+    "ENT_REGIS", "ANIO_REGIS", "EDAD_CON1", "OCUP_CON1", "CONACTCON1", "SITLABCON1",
+    "EDAD_CON2", "OCUP_CON2", "CONACTCON2", "SITLABCON2"
+]
 
+# Leer y procesar los archivos
+df_list2 = []
+for file in files_10_23:
+    file_path = drive_path + file  
+    df = spark.read.csv(file_path, header=True, inferSchema=True)  
+    df = df.select([col(c) for c in selected_columns]) # Seleccionar solo las columnas necesarias
+    df_filtered = df.filter(
+        (col("EDAD_CON1") != col("EDAD_CON2")) & 
+        (col("EDAD_CON2") < 20) & 
+        (col("anio_regis") > 2002)
+    )# Aplicar los filtros
+    df_list2.append(df_filtered)
 
-# Unir los DataFrames (DF09-03 y DF10-23)
-columnas_comunes = list(set(df_09_03.columns) & set(df_10_23.columns))  # Obtener las columnas comunes
-MAT_INF_ADO = df_09_03.select(*columnas_comunes).union(df_10_23.select(*columnas_comunes))
+#Unir todos los DataFrames en df10_23
+df10_23 = df_list2[0]
+for df in df_list2[1:]:
+    df10_23 = df10_23.union(df)
+
+# Unir los DataFrames df10_23 y df03_09
+MAT_INF_ADO = df10_23.union(df03_09)
+
+# Guardar el DataFrame unido en un archivo CSV
+MAT_INF_ADO.write.csv("/content/drive/MyDrive/Matrimonios/MAT_INF_ADO.csv", header=True)
 
 spark.stop()
