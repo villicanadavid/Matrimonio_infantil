@@ -4,6 +4,10 @@
 #!pip install pyspark #En notebook
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
+from pyspark.sql import functions as F
+import os
+import shutil
+
 
 #Iniciar sesion SPARK
 spark = SparkSession.builder.appName("MAT_INF_ADO").getOrCreate()
@@ -47,14 +51,16 @@ for file in files:
 
 final_df = df_list[0]
 for df in df_list[1:]:
-    df03_09 = final_df.union(df)
+    final_df = final_df.union(df) 
+    df03_09 = final_df
 
 #---------------------------------------------------------------------------------------------------------------2010-2023
 files_10_23 = [
     "MATRI10.csv", "MATRI11.csv", "MATRI12.csv", "MATRI13.csv", "MATRI14.csv", 
     "MATRI15.csv", "MATRI16.csv", "conjunto_de_datos_matrimonios_2022.csv", 
     "conjunto_de_datos_matrimonios_2021.csv", "conjunto_de_datos_matrimonios_2020.csv", 
-    "conjunto_de_datos_matrimonios_2019.CSV"
+    "conjunto_de_datos_matrimonios_2019.CSV", "conjunto_de_datos_matrimonios_2018.CSV", 
+    "conjunto_de_datos_matrimonios_2017.csv"
 ]
 
 selected_columns = [
@@ -71,7 +77,7 @@ for file in files_10_23:
     df_filtered = df.filter(
         (col("EDAD_CON1") != col("EDAD_CON2")) & 
         (col("EDAD_CON2") < 20) & 
-        (col("anio_regis") > 2002)
+        (col("ANIO_REGIS") > 2002)
     )# Aplicar los filtros
     df_list2.append(df_filtered)
 
@@ -80,10 +86,26 @@ df10_23 = df_list2[0]
 for df in df_list2[1:]:
     df10_23 = df10_23.union(df)
 
-# Unir los DataFrames df10_23 y df03_09
-MAT_INF_ADO = df10_23.union(df03_09)
+# Unir df03_09 y df10_23
+df_final = df03_09.union(df10_23)
 
-# Guardar el DataFrame unido en un archivo CSV
-MAT_INF_ADO.write.csv("/content/drive/MyDrive/Matrimonios/MAT_INF_ADO.csv", header=True)
+# 🔹 Asegurar que el DataFrame tenga solo 1 partición
+df_final = df_final.coalesce(1)
+
+# 🔹 Guardar en una carpeta temporal (Spark genera un CSV con nombre aleatorio)
+output_dir = "/content/drive/MyDrive/Matrimonios/MAT_INF_ADO_temp"
+df_final.write.mode("overwrite").csv(output_dir, header=True)
+
+# 🔹 Renombrar el archivo a un nombre fijo y moverlo a la carpeta correcta
+final_csv_path = "/content/drive/MyDrive/Matrimonios/MAT_INF_ADO.csv"
+
+# Buscar el archivo CSV generado y renombrarlo
+for file in os.listdir(output_dir):
+    if file.startswith("part-") and file.endswith(".csv"):  # Identificar el archivo correcto
+        shutil.move(os.path.join(output_dir, file), final_csv_path)  # Mover y renombrar
+        break
+
+# 🔹 Eliminar la carpeta temporal
+shutil.rmtree(output_dir)
 
 spark.stop()
