@@ -8,6 +8,9 @@ from pyspark.sql.functions import col
 import os
 import shutil
 import glob
+import pandas as pd
+import pyarrow
+#!pip install pyarrow
 
 # Iniciar sesión Spark
 spark = SparkSession.builder.appName("MAT_INF_ADO").getOrCreate()
@@ -110,3 +113,8 @@ shutil.rmtree(output_dir)
 spark.stop()
 
 print("✅ ETL finalizado exitosamente. Archivo Parquet guardado en:", final_parquet_path)
+
+df = pd.read_parquet('/content/drive/MyDrive/Matrimonios/MAT_INF_ADO.parquet')
+
+# Guardar CSV file
+df.to_csv('/content/drive/MyDrive/Matrimonios/MAT_INF_ADO.csv', index=False) 
