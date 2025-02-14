@@ -48,7 +48,7 @@ def cargar_procesar_archivos(files, renombrar=False):
             else:
                 df = df.select(*selected_columns)
             
-            df_filtered = df.filter((col("EDAD_CON2") < 20) & (col("ANIO_REGIS") > 2002))
+            df_filtered = df.filter((col("EDAD_CON2") < 18) & (col("ANIO_REGIS") > 2002))
             df_list.append(df_filtered)
         
         except Exception as e:
@@ -91,14 +91,15 @@ df_final = df_final.repartition(1)
 output_dir = "/content/drive/MyDrive/Matrimonios/MAT_INF_ADO_temp"
 df_final.write.mode("overwrite").parquet(output_dir)
 
-# Renombrar archivo final a CSV
-final_path = "/content/drive/MyDrive/Matrimonios/MAT_INF_ADO"
+# Renombrar archivo final de Parquet
+final_parquet_name = "MAT_INF_ADO.parquet"
+final_parquet_path = os.path.join(drive_path, final_parquet_name)
 
 # Buscar archivo generado dentro de la carpeta temporal
 parquet_files = glob.glob(os.path.join(output_dir, "*.parquet"))
 if parquet_files:
     temp_parquet_file = parquet_files[0]  # Tomar el primer archivo generado
-    spark.read.parquet(temp_parquet_file).coalesce(1).write.mode("overwrite").csv(final_path, header=True)
+    shutil.move(temp_parquet_file, final_parquet_path)
 else:
     raise FileNotFoundError("No se generó ningún archivo Parquet.")
 
@@ -108,4 +109,4 @@ shutil.rmtree(output_dir)
 # Detener Spark
 spark.stop()
 
-print("✅ ETL finalizado exitosamente. Archivo guardado en:", final_path)
+print("✅ ETL finalizado exitosamente. Archivo Parquet guardado en:", final_parquet_path)
